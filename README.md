@@ -2,6 +2,12 @@
 
 The **Support Integrity Auditor (SIA)** is a semantics-driven, evidence-grounded machine learning pipeline that automatically audits customer support tickets to detect "Priority Mismatches." It tackles the problem of tickets being mislabeled (either inflated as "Critical" or downplayed as "Low") by generating its own pseudo-labels and training a neural network to detect discrepancies, backed by a zero-hallucination heuristic evidence engine.
 
+## 🌐 Live Demo
+
+You can try out the live web application hosted on Hugging Face Spaces here:
+**[SIA Ticket Auditor - Live Demo](https://huggingface.co/spaces/divyansh89/SIA-Ticket-Auditor)**
+
+> *Note: Hugging Face provides a 16GB CPU environment for free, which makes it an excellent choice for hosting this inference pipeline and Streamlit dashboard without incurring costs.*
 ## 📊 Evaluation Metrics
 
 The model was evaluated against strict minimum thresholds on a held-out test split, outperforming all requirements:
