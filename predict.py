@@ -152,12 +152,14 @@ def audit_ticket(tokenizer, model, threshold, subject, desc, channel, human_prio
 # 4. CLI / EXECUTION BLOCK
 # ==========================================
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Run SIA Hybrid AI Inference on a single ticket.")
-    parser.add_argument("--subject", type=str, default="Production Outage", help="Ticket Subject")
-    parser.add_argument("--desc", type=str, default="URGENT: Entire production database was wiped and the system is down.", help="Ticket Description")
-    parser.add_argument("--channel", type=str, default="Email", help="Intake Channel (e.g., Email, Chat)")
-    parser.add_argument("--prio", type=str, default="Low", help="Human Assigned Priority (Low, Medium, High, Critical)")
-    parser.add_argument("--hours", type=float, default=2.5, help="Resolution Time in Hours")
+    parser = argparse.ArgumentParser(description="Run SIA Hybrid AI Inference.")
+    parser.add_argument("--csv_path", type=str, default=None, help="Path to input CSV for batch inference")
+    parser.add_argument("--output_json", type=str, default="batch_dossiers.json", help="Output path for batch JSON dossiers")
+    parser.add_argument("--subject", type=str, default="Production Outage", help="Ticket Subject (single mode)")
+    parser.add_argument("--desc", type=str, default="URGENT: Entire production database was wiped and the system is down.", help="Ticket Description (single mode)")
+    parser.add_argument("--channel", type=str, default="Email", help="Intake Channel (single mode)")
+    parser.add_argument("--prio", type=str, default="Low", help="Human Assigned Priority (single mode)")
+    parser.add_argument("--hours", type=float, default=2.5, help="Resolution Time in Hours (single mode)")
     
     args = parser.parse_args()
 
@@ -167,20 +169,52 @@ if __name__ == "__main__":
         threshold = load_threshold()
         
         print(f"✅ System Ready. (Active Threshold: {threshold})\n")
-        print("-" * 50)
-        print("🔍 AUDITING TICKET:")
-        print(f"Subject:  {args.subject}")
-        print(f"Priority: {args.prio}")
-        print("-" * 50, "\n")
         
-        # Run inference
-        result_json = audit_ticket(
-            tokenizer, model, threshold, 
-            args.subject, args.desc, args.channel, args.prio, args.hours
-        )
-        
-        # Pretty print the JSON output
-        print(json.dumps(result_json, indent=4))
+        if args.csv_path:
+            import pandas as pd
+            print(f"📂 Running Batch Inference on {args.csv_path}...")
+            df = pd.read_csv(args.csv_path)
+            # Standardize columns
+            df.columns = df.columns.str.strip().str.replace(' ', '_').str.lower()
+            
+            # Map known column names if needed
+            col_map = {"time_to_resolution": "resolution_time_hours", "ticket_type": "issue_category", "ticket_priority": "priority_level"}
+            df.rename(columns=col_map, inplace=True)
+            
+            results = []
+            for idx, row in df.iterrows():
+                subj = str(row.get('ticket_subject', 'Unknown'))
+                desc = str(row.get('ticket_description', ''))
+                chan = str(row.get('ticket_channel', 'Unknown'))
+                prio = str(row.get('priority_level', 'Low'))
+                hrs = float(row.get('resolution_time_hours', 12.0))
+                
+                res = audit_ticket(tokenizer, model, threshold, subj, desc, chan, prio, hrs)
+                if res.get('evidence_dossier'):
+                    # Inject ticket ID if available
+                    res['evidence_dossier']['ticket_id'] = str(row.get('ticket_id', f"BATCH-{idx}"))
+                results.append(res)
+            
+            with open(args.output_json, 'w') as f:
+                json.dump(results, f, indent=4)
+            print(f"✅ Batch inference complete. Processed {len(df)} tickets.")
+            print(f"💾 Results saved to {args.output_json}")
+            
+        else:
+            print("-" * 50)
+            print("🔍 AUDITING SINGLE TICKET:")
+            print(f"Subject:  {args.subject}")
+            print(f"Priority: {args.prio}")
+            print("-" * 50, "\n")
+            
+            # Run inference
+            result_json = audit_ticket(
+                tokenizer, model, threshold, 
+                args.subject, args.desc, args.channel, args.prio, args.hours
+            )
+            
+            # Pretty print the JSON output
+            print(json.dumps(result_json, indent=4))
         
     except Exception as e:
         print(f"\n❌ Execution Failed: {str(e)}")
