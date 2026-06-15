@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+results/
+model/
+flagged_mismatch_dossiers.json
+threshold.json
